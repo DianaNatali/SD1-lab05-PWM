@@ -1,46 +1,57 @@
 #include "stm32f103xb.h"
+#include <stdint.h>
 
 void delay_ms(uint32_t ms) {
-    for (uint32_t i = 0; i < ms * 8000; i++) __NOP();
+    for(uint32_t i=0;i<ms*8000;i++) __NOP();
 }
 
-void pwm_init(void) {
-    // 1. Habilitar reloj para GPIOA y TIM2
+void pwm_init(void){
     RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 
-    // 2. Configurar PA0 como salida alternativa push-pull (TIM2_CH1)
-    GPIOA->CRL &= ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0);
-    GPIOA->CRL |= (GPIO_CRL_MODE0_1 | GPIO_CRL_MODE0_0);
-    GPIOA->CRL |= GPIO_CRL_CNF0_1;
+    GPIOA->CRL &= ~(GPIO_CRL_MODE2 | GPIO_CRL_CNF2);
+    GPIOA->CRL |=  (GPIO_CRL_MODE2_1 | GPIO_CRL_MODE2_0);
+    GPIOA->CRL |=   GPIO_CRL_CNF2_1;
 
-    // 3. Configurar TIM2 en modo PWM
-    TIM2->PSC = 7;
-    TIM2->ARR = 1999;
-    TIM2->CCR1 = 0;
+    GPIOA->CRL &= ~(GPIO_CRL_MODE3 | GPIO_CRL_CNF3);
+    GPIOA->CRL |=  (GPIO_CRL_MODE3_1 | GPIO_CRL_MODE3_0);
+    GPIOA->CRL |=   GPIO_CRL_CNF3_1;
 
-    // 4. Configurar canal 1 de TIM2 para PWM
-    TIM2->CCMR1 |= (6 << 4);
-    TIM2->CCER |= TIM_CCER_CC1E;
+    TIM2->PSC  = 7;
+    TIM2->ARR  = 1999;
 
-    // 5. Habilitar el contador de TIM2
+    // ---- CH3 (IN1) ----
+    TIM2->CCR3 = 500; // duty
+    TIM2->CCMR2 &= ~(TIM_CCMR2_OC3M | TIM_CCMR2_OC3PE);
+    TIM2->CCMR2 |=  (6 << TIM_CCMR2_OC3M_Pos);
+    TIM2->CCMR2 |=   TIM_CCMR2_OC3PE;
+
+    // ---- CH4 (IN2) ----
+    TIM2->CCR4 = 500; // duty
+    TIM2->CCMR2 &= ~(TIM_CCMR2_OC4M | TIM_CCMR2_OC4PE);
+    TIM2->CCMR2 |=  (6 << TIM_CCMR2_OC4M_Pos);
+    TIM2->CCMR2 |=   TIM_CCMR2_OC4PE;
+
+    TIM2->CR1 |= TIM_CR1_ARPE;
+    TIM2->EGR  = TIM_EGR_UG;
     TIM2->CR1 |= TIM_CR1_CEN;
 }
 
-void increment_pwm_duty(void) {
-    if (TIM2->CCR1 < 2000) {
-        TIM2->CCR1 += 400;
-    } else {
-        TIM2->CCR1 = 0;
-    }
-}
-
-int main(void) {
+int main(void){
     pwm_init();
 
-    while (1) {
-        increment_pwm_duty();
+    while(1){
+        TIM2->CCER |=  TIM_CCER_CC3E;   // IN1 = PWM
+        TIM2->CCER &= ~TIM_CCER_CC4E;   // IN2 = 0
+        delay_ms(100);
 
-        delay_ms(50);
+        // --- Atrás: CH3 apagado, CH4 activo ---
+        TIM2->CCER &= ~TIM_CCER_CC3E;   // IN1 = 0
+        TIM2->CCER |=  TIM_CCER_CC4E;   // IN2 = PWM
+        delay_ms(100);
+
+        // --- Stop: ambos OFF ---
+        TIM2->CCER &= ~(TIM_CCER_CC3E | TIM_CCER_CC4E);
+        delay_ms(200);
     }
 }

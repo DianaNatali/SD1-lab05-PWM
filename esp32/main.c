@@ -1,55 +1,72 @@
 #include <stdio.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "driver/ledc.h"
 #include "esp_err.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-#define PWM_PIN        18       
-#define PWM_FREQ_HZ    500    
-#define PWM_RES_BITS   LEDC_TIMER_11_BIT  
-#define PWM_CHANNEL    LEDC_CHANNEL_0
-#define PWM_TIMER      LEDC_TIMER_0
-#define PWM_MODE       LEDC_HIGH_SPEED_MODE
+#define IN1_GPIO    25   
+#define IN2_GPIO    26   
 
-void pwm_init(void) {
-    // 1. Configurar el temporizador
-    ledc_timer_config_t ledc_timer = {
-        .speed_mode       = PWM_MODE,
-        .timer_num        = PWM_TIMER,
-        .duty_resolution  = PWM_RES_BITS,
-        .freq_hz          = PWM_FREQ_HZ,
+#define PWM_FREQ        5000
+#define PWM_RESOLUTION  LEDC_TIMER_10_BIT
+#define DUTY_SMOOTH     500   
+#define DUTY_STOP       0
+
+void app_main(void)
+{
+    ledc_timer_config_t timer_conf = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .duty_resolution  = PWM_RESOLUTION,
+        .timer_num        = LEDC_TIMER_0,
+        .freq_hz          = PWM_FREQ,
         .clk_cfg          = LEDC_AUTO_CLK
     };
-    ledc_timer_config(&ledc_timer);
+    ledc_timer_config(&timer_conf);
 
-    // 2. Configurar el canal
-    ledc_channel_config_t ledc_channel = {
-        .speed_mode     = PWM_MODE,
-        .channel        = PWM_CHANNEL,
-        .timer_sel      = PWM_TIMER,
-        .intr_type      = LEDC_INTR_DISABLE,
-        .gpio_num       = PWM_PIN,
-        .duty           = 0,
+    ledc_channel_config_t ch1_conf = {
+        .gpio_num       = IN1_GPIO,
+        .speed_mode     = LEDC_LOW_SPEED_MODE,
+        .channel        = LEDC_CHANNEL_0,
+        .timer_sel      = LEDC_TIMER_0,
+        .duty           = DUTY_STOP,
         .hpoint         = 0
     };
-    ledc_channel_config(&ledc_channel);
-}
+    ledc_channel_config(&ch1_conf);
 
-void app_main(void) {
-    pwm_init();
+    ledc_channel_config_t ch2_conf = {
+        .gpio_num       = IN2_GPIO,
+        .speed_mode     = LEDC_LOW_SPEED_MODE,
+        .channel        = LEDC_CHANNEL_1,
+        .timer_sel      = LEDC_TIMER_0,
+        .duty           = DUTY_STOP,
+        .hpoint         = 0
+    };
+    ledc_channel_config(&ch2_conf);
 
-    const uint32_t max_duty = (1 << 11) - 1;  
-    uint32_t duty = 0;
+    while (1)
+    {
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, DUTY_SMOOTH);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 
-    while (1) {
-        ledc_set_duty(PWM_MODE, PWM_CHANNEL, duty);
-        ledc_update_duty(PWM_MODE, PWM_CHANNEL);
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, DUTY_STOP);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
 
-        duty += (max_duty / 5);  
-        if (duty > max_duty) {
-            duty = 0;
-        }
+        vTaskDelay(pdMS_TO_TICKS(2000));
 
-        vTaskDelay(pdMS_TO_TICKS(500));  // Esperar 
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, DUTY_STOP);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, DUTY_SMOOTH);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, DUTY_STOP);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, DUTY_STOP);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }

@@ -1,4 +1,4 @@
-# SD1-lab05-PWM
+# Lab05 - PWM
 
 ## Integrantes
 
@@ -7,3 +7,9 @@
 <!---
 A nivel de registros y funciones
 -->
+
+## Resultados
+
+
+## Evidencias de implementación
+
